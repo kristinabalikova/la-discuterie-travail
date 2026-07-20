@@ -30,22 +30,23 @@ et offre un contraste AA (~6,4:1) avec le texte blanc des boutons.
 
 ## Intégration en iframe
 
-Remplacer `TON-SITE` ci-dessous par le sous-domaine Netlify réel, et
-`TON-DOMAINE.com` dans `netlify.toml` (en-tête CSP `frame-ancestors`) par
-le domaine du site qui embarque l'iframe.
+Le sous-domaine Netlify du site est `ladiscuterietravail.netlify.app`. Il
+reste un seul placeholder à renseigner : `TON-DOMAINE.com` dans
+`netlify.toml` (en-tête CSP `frame-ancestors`), à remplacer par le domaine
+du site qui embarque l'iframe.
 
 ```html
 <iframe
-  src="https://TON-SITE.netlify.app/"
+  src="https://ladiscuterietravail.netlify.app/"
   title="La Discuterie Travail"
-  style="width:100%;border:0;min-height:720px"
+  style="width:100%;border:0;min-height:900px"
   loading="lazy"
 ></iframe>
 ```
 
-> Note : le contenu est naturellement plus haut que 720 px (≈ 870 px sur
-> desktop, ≈ 1000–1040 px en mobile où la bobine est plus grande, pour que
-> l'affirmation la plus longue tienne sans troncature). `min-height:720px`
-> est un plancher : montez-le (par ex. `min-height:900px`) ou branchez un
-> script d'auto-redimensionnement côté page hôte si vous voulez que le
-> bouton « Lancer » soit visible sans défilement interne.
+> Note : le contenu avoisine 900 px sur desktop (un peu plus depuis l'ajout
+> du sélecteur de mode) et grimpe à ≈ 1000–1040 px en mobile, où la bobine
+> est plus grande pour que l'affirmation la plus longue tienne sans
+> troncature. `min-height:900px` est un plancher : montez-le si besoin ou
+> branchez un script d'auto-redimensionnement côté page hôte si vous voulez
+> que le bouton « Lancer » soit visible sans défilement interne.

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, History, RotateCcw, Sparkles, Trash2 } from "lucide-react";
-import { QUESTIONS, type QuestionItem } from "./questionsData";
+import { QUESTIONS, getQuestionsByMode, type QuestionItem, type QuestionMode } from "./questionsData";
 
 type SpinStatus = "ready" | "spinning" | "done";
 
@@ -25,6 +25,14 @@ const SPIN_DURATION = 2200;
 const HISTORY_LIMIT = 8;
 const CYCLE_MESSAGE = "Toutes les questions sont passées, on repart pour un tour.";
 
+const MODE_LABELS: Record<QuestionMode, string> = {
+  tout: "Tout",
+  affirmation: "Affirmations",
+  question: "Questions",
+};
+
+const MODE_OPTIONS: QuestionMode[] = ["tout", "affirmation", "question"];
+
 function pickRandom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
@@ -38,8 +46,8 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-function buildDeck(avoidId: string | null): QuestionItem[] {
-  const shuffled = shuffle(QUESTIONS);
+function buildDeck(pool: QuestionItem[] = QUESTIONS, avoidId: string | null = null): QuestionItem[] {
+  const shuffled = shuffle(pool);
   if (avoidId && shuffled.length > 1 && shuffled[shuffled.length - 1].id === avoidId) {
     const swapIndex = Math.floor(Math.random() * (shuffled.length - 1));
     const last = shuffled.length - 1;
@@ -48,9 +56,9 @@ function buildDeck(avoidId: string | null): QuestionItem[] {
   return shuffled;
 }
 
-function buildPreviewReel(): ReelState {
-  const result = pickRandom(QUESTIONS);
-  const items = [pickRandom(QUESTIONS), result, pickRandom(QUESTIONS)];
+function buildPreviewReel(pool: QuestionItem[] = QUESTIONS): ReelState {
+  const result = pickRandom(pool);
+  const items = [pickRandom(pool), result, pickRandom(pool)];
   return { id: 0, items, result, offset: 0, finalOffset: 0, duration: 0 };
 }
 
@@ -59,15 +67,19 @@ function prefersReducedMotion(): boolean {
 }
 
 export default function App() {
+  const [mode, setMode] = useState<QuestionMode>("tout");
+  const pool = useMemo(() => getQuestionsByMode(mode), [mode]);
+
   const [unique, setUnique] = useState(true);
   const [status, setStatus] = useState<SpinStatus>("ready");
   const [result, setResult] = useState<QuestionItem | null>(null);
-  const [reel, setReel] = useState<ReelState>(() => buildPreviewReel());
+  const [reel, setReel] = useState<ReelState>(() => buildPreviewReel(pool));
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [copied, setCopied] = useState(false);
   const [deckCycled, setDeckCycled] = useState(false);
 
   const reelRef = useRef<HTMLDivElement | null>(null);
+  const reelTrackRef = useRef<HTMLDivElement | null>(null);
   const spinTimerRef = useRef<number | null>(null);
   const spinRunRef = useRef(0);
   const deckRef = useRef<QuestionItem[]>([]);
@@ -82,6 +94,19 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (spinTimerRef.current) {
+      window.clearTimeout(spinTimerRef.current);
+    }
+    deckRef.current = [];
+    lastDrawnIdRef.current = null;
+    setDeckCycled(false);
+    setCopied(false);
+    setResult(null);
+    setStatus("ready");
+    setReel(buildPreviewReel(pool));
+  }, [pool]);
+
   function measureItemHeight(): number {
     const el = reelRef.current;
     if (!el) {
@@ -93,7 +118,7 @@ export default function App() {
 
   function drawUniqueQuestion(): { question: QuestionItem; cycled: boolean } {
     if (deckRef.current.length === 0) {
-      deckRef.current = buildDeck(lastDrawnIdRef.current);
+      deckRef.current = buildDeck(pool, lastDrawnIdRef.current);
     }
     const question = deckRef.current.pop()!;
     lastDrawnIdRef.current = question.id;
@@ -127,27 +152,28 @@ export default function App() {
       target = draw.question;
       cycled = draw.cycled;
     } else {
-      target = pickRandom(QUESTIONS);
+      target = pickRandom(pool);
     }
 
     pendingCycledRef.current = cycled;
 
     const itemHeight = measureItemHeight();
     const reducedMotion = prefersReducedMotion();
-    const duration = reducedMotion ? 50 : SPIN_DURATION;
-    const finishDelay = reducedMotion ? 60 : duration + 250;
+    const spinDuration = reducedMotion ? 50 : SPIN_DURATION;
+    const finishDelay = reducedMotion ? 120 : spinDuration + 250;
 
-    const items = Array.from({ length: FILLER_LENGTH }, () => pickRandom(QUESTIONS));
+    const items = Array.from({ length: FILLER_LENGTH }, () => pickRandom(pool));
     const targetIndex = items.length;
-    items.push(target, pickRandom(QUESTIONS), pickRandom(QUESTIONS));
+    items.push(target, pickRandom(pool), pickRandom(pool));
 
+    // RESET PHASE: offset 0, duration 0 — instant jump to the top, no animation.
     const nextReel: ReelState = {
       id: ++spinRunRef.current,
       items,
       result: target,
       offset: 0,
       finalOffset: itemHeight - targetIndex * itemHeight,
-      duration,
+      duration: 0,
     };
 
     setCopied(false);
@@ -157,8 +183,12 @@ export default function App() {
     setReel(nextReel);
 
     window.requestAnimationFrame(() => {
+      if (reelTrackRef.current) {
+        void reelTrackRef.current.offsetHeight; // force reflow so the reset paint (offset 0, duration 0) commits before we animate
+      }
       window.requestAnimationFrame(() => {
-        setReel((current) => ({ ...current, offset: current.finalOffset }));
+        // SPIN PHASE: duration and offset change together in the same commit.
+        setReel((current) => ({ ...current, offset: current.finalOffset, duration: spinDuration }));
       });
     });
 
@@ -193,7 +223,7 @@ export default function App() {
     setCopied(false);
     setStatus("ready");
     setDeckCycled(false);
-    setReel(buildPreviewReel());
+    setReel(buildPreviewReel(pool));
   }
 
   return (
@@ -210,6 +240,19 @@ export default function App() {
         </header>
 
         <div className="controls-bar">
+          <div className="set-grid" role="group" aria-label="Mode de tirage">
+            {MODE_OPTIONS.map((option) => (
+              <button
+                className={`set-pill${mode === option ? " active" : ""}`}
+                disabled={status === "spinning"}
+                key={option}
+                onClick={() => setMode(option)}
+                type="button"
+              >
+                {MODE_LABELS[option]}
+              </button>
+            ))}
+          </div>
           <label className="toggle">
             <input
               checked={unique}
@@ -230,7 +273,7 @@ export default function App() {
             </div>
             <div className="machine-title">
               <Sparkles size={18} aria-hidden="true" />
-              <span>{status === "spinning" ? "Tirage..." : "Affirmation"}</span>
+              <span>{status === "spinning" ? "Tirage..." : MODE_LABELS[mode]}</span>
             </div>
           </div>
 
@@ -239,6 +282,10 @@ export default function App() {
               <div className="payline" aria-hidden="true" />
               <div
                 className="reel-track"
+                ref={reelTrackRef}
+                key={reel.id}
+                data-final-offset={reel.finalOffset}
+                data-duration={reel.duration}
                 style={{
                   transform: `translate3d(0, ${reel.offset}px, 0)`,
                   transitionDuration: `${reel.duration}ms`,
