@@ -234,8 +234,13 @@ export default function App() {
             <p className="eyebrow">La Discuterie</p>
             <h1>Travail</h1>
           </div>
-          <div className="brand-mark" aria-hidden="true">
-            <span>💼</span>
+          <div className="brand-mark">
+            <img
+              alt="OUI"
+              height={164}
+              src={`${import.meta.env.BASE_URL}logo-oui@180.png`}
+              width={180}
+            />
           </div>
         </header>
 

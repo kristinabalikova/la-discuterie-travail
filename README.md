@@ -23,10 +23,13 @@ npm run preview   # sert le build de dist/ sur http://localhost:4173
 
 ## Couleur d'accent
 
-L'accent est un « bleu de travail » profond (`#2358c4`), en référence à la
-veste de travail bleue emblématique en France. Il se distingue du magenta
-de La Discuterie Emoji, évoque le sérieux et la fiabilité sans être terne,
-et offre un contraste AA (~6,4:1) avec le texte blanc des boutons.
+L'accent est le magenta de marque du logo « OUI » (`#d523c3`), repris
+directement de la bulle de dialogue du logo. Il sert aux éléments
+décoratifs (lampes, ombres portées, ligne de gain, focus, halos). Comme ce
+magenta est trop clair pour garantir un contraste AA (≥4,5:1) avec du texte
+blanc, le fond du bouton principal utilise une variante assombrie,
+`--accent-strong` (`#b01ba2`), tandis que `#d523c3` reste réservé au
+décor.
 
 ## Intégration en iframe
 
